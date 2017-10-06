@@ -11,7 +11,9 @@ exports.deploy = function(codePackage, config, callback, logger, lambda) {
   if(!lambda) {
     if("profile" in config) {
       var credentials = new AWS.SharedIniFileCredentials({profile: config.profile});
-      AWS.config.credentials = credentials;
+      AWS.config.credentials = new AWS.TemporaryCredentials({
+		  RoleArn: config.assumedRole}, credentials);
+    }
     }
 
     if (process.env.HTTPS_PROXY) {
