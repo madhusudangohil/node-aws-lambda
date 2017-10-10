@@ -14,7 +14,6 @@ exports.deploy = function(codePackage, config, callback, logger, lambda) {
       AWS.config.credentials = new AWS.TemporaryCredentials({
 		  RoleArn: config.assumedRole}, credentials);
     }
-    }
 
     if (process.env.HTTPS_PROXY) {
       if (!AWS.config.httpOptions) {
@@ -41,14 +40,44 @@ exports.deploy = function(codePackage, config, callback, logger, lambda) {
     MemorySize: config.memorySize
   };
   if (config.vpc) params.VpcConfig = config.vpc;
+    if (config.environment) params.Environment = config.environment;
   var isPublish = (config.publish === true);
 
+   
   var updateEventSource = function(eventSource, callback) {
     var params = extend({
       FunctionName: config.functionName
     }, eventSource);
 
-    lambda.listEventSourceMappings({
+    if (config.lambdaSnsPermission) {
+        var sns = new AWS.SNS({
+            region: config.region
+        });
+        var subscribeParams = {
+            Protocol: 'Lambda', /* required */
+            TopicArn: params.EventSourceArn, /* required */
+            Endpoint: config.functionArn
+    };
+        sns.subscribe(subscribeParams, function (err, data) {
+            if (err) console.log(err, err.stack); // an error occurred
+            else console.log(data);           // successful response
+        });
+
+	  let perm = {
+		  Action: "lambda:InvokeFunction", 
+		  FunctionName: config.functionName, 
+		  Principal: "sns.amazonaws.com", 		  
+		  SourceArn: params.EventSourceArn, 
+		  StatementId: Date.now().toString()
+		 };
+		 
+		  lambda.addPermission(perm, function(err, data) {
+				if (err) console.log(err, err.stack); // an error occurred
+		  else     console.log(data); });
+  }
+  
+	
+    /*lambda.listEventSourceMappings({
       FunctionName: params.FunctionName,
       EventSourceArn: params.EventSourceArn
     }, function(err, data) {
@@ -81,7 +110,7 @@ exports.deploy = function(codePackage, config, callback, logger, lambda) {
           });
         }
       }
-    });
+    });*/
   };
 
   var updateEventSources = function(callback) {
